@@ -168,8 +168,8 @@ function getCollection(world: World, signature: string): Collection {
     if (found) return found
 
     const split = signature.split('!')
-    const include = split[1]
-    const exclude = split[2] || undefined
+    const include = split[0]
+    const exclude = split[1] || undefined
 
     const collection = new Map() as Collection
     world._signatureToCollection.set(signature, collection)
@@ -182,7 +182,7 @@ function getCollection(world: World, signature: string): Collection {
             (exclude === undefined ||
                 band(exclude!, data.signature) === charZero)
         )
-            collection[entity] = data.components
+            collection.set(entity, data.components)
     }
 
     return collection
@@ -191,7 +191,7 @@ function getCollection(world: World, signature: string): Collection {
 function nop() {}
 
 function register(world: World, entity: any) {
-    if (world._entityToData.get(entity) === undefined)
+    if (world._entityToData.get(entity) !== undefined)
         return Error('Attempting to register entity twice')
 
     const entityData = {
@@ -298,8 +298,7 @@ Stew.world = () => {
                 return entityData.components.get(factory)
 
             const component = archetype.create(factory, entity, ...args)
-			if (component === undefined)
-				return undefined
+            if (component === undefined) return undefined
 
             entityData.components.set(factory, component)
 
@@ -315,33 +314,32 @@ Stew.world = () => {
         }
 
         factory.remove = (entity, ...args) => {
-        	const entityData = world._entityToData.get(entity)
-        	if (entityData === undefined)
-        		return
+            const entityData = world._entityToData.get(entity)
+            if (entityData === undefined) return
 
-        	const component = entityData.components.get(factory)
-        	if (component === undefined)
-        		return
+            const component = entityData.components.get(factory)
+            if (component === undefined) return
 
-        	archetype.delete(factory, entity, component, ...args)
+            archetype.delete(factory, entity, component, ...args)
 
-        	const signature = bxor(entityData.signature, archetype.signature)
-        	entityData.signature = signature
-        	entityData.components.delete(factory)
+            const signature = bxor(entityData.signature, archetype.signature)
+            entityData.signature = signature
+            entityData.components.delete(factory)
 
-        	updateCollections(world, entity, entityData)
+            updateCollections(world, entity, entityData)
 
-        	factory.removed(entity, component)
-        	world.removed(factory, entity, component)
+            factory.removed(entity, component)
+            world.removed(factory, entity, component)
 
-        	if (entityData.signature === charZero)
-        		unregister(world, entity)
-		}
+            if (entityData.signature === charZero) unregister(world, entity)
+        }
 
-        // function factory.get(entity: E): C?
-        // 	local entityData = world._entityToData[entity]
-        // 	return if entityData then entityData.components[factory] else nil
-        // end
+        factory.get = entity => {
+            const entityData = world._entityToData.get(entity)
+            return entityData !== undefined
+                ? entityData.components.get(factory)
+                : undefined
+        }
 
         world._factoryToData.set(factory, archetype)
         world._nextPlace++
@@ -408,17 +406,71 @@ Stew.world = () => {
 
 const world = Stew.world()
 
-const f1 = world.factory({
-	add: (factory, entity: any, x: number, y: number, z: number) => {
-		return [x, y, z]
-	},
-	remove: (factory, entity: any) => {
-		console.log(entity, 'Removing!')
-	},
-	data: 5,
-})
+world.added = (factory, entity, component) => {
+	console.log(factory.data, entity)
+}
 
-f1.add()
+const factories = [] as Factory<any, any, any, any, any>[]
+
+for (let i = 0; i < 50; i++) {
+	const factory = world.factory({
+		add: (factory: any, entity: any) => {
+			return i
+		},
+		remove: (factory, entity: any) => {
+			console.log(entity, i)
+		},
+		data: i,
+	})
+
+	factories.push(factory)
+}
+
+for (let i = 0; i < 1000; i++) {
+	const entity = world.entity()
+
+	for (let j = 0; j < 20; j++) {
+		const f = factories[Math.floor(Math.random() * factories.length)]
+		f.add(entity)
+	}
+}
+
+const include = [] as Factory<any, any, any, any, any>[]
+let includeId = [] as number[]
+
+const exclude = [] as Factory<any, any, any, any, any>[]
+let excludeId = [] as number[]
+
+for (let i = 0; i < 4; i++) {
+	const factory = factories[Math.floor(Math.random() * factories.length)]
+	include.push(factory)
+	includeId.push(factory.data)
+}
+
+for (let i = 0; i < 4; i++) {
+	const factory = factories[Math.floor(Math.random() * factories.length)]
+	exclude.push(factory)
+	excludeId.push(factory.data)
+}
+
+includeId.sort()
+excludeId.sort()
+
+const query = world.query(include, exclude)
+if (query instanceof Error)
+	throw query
+
+console.log(includeId.toString() + '\t!\t' + excludeId.toString())
+
+query.forEach((comps, ent) => {
+	let ids = []
+	for (let [factory] of comps) {
+		ids.push(factory.data)
+	}
+	ids.sort()
+
+	console.log(ent + '\t-\t' + ids.toString())
+})
 
 export default Stew
 // return Stew
