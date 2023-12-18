@@ -128,7 +128,7 @@ end
 local Stew = {}
 
 export type Signature = string
-export type Components = { [Factory<any, any, any, ...any, ...any>]: any }
+export type Components = { [Factory<any, any, any, ...any, ...any>]: any? }
 export type Collection = {
 	[any]: Components,
 }
@@ -167,16 +167,12 @@ local found = world._signatureToCollection[signature]
 	world._signatureToCollection[signature] = collection
 
 	local universal = world._signatureToCollection[charZero]
-	for entity, data in universal do
-		if sand(include, data.signature) ~= include then
-			continue
-		end
 
-		if exclude and sand(exclude, data.signature) ~= charZero then
-			continue
+	for entity in universal do
+		local data = world._entityToData[entity]
+		if sand(include, data.signature) == include and (not exclude or sand(exclude, data.signature) == charZero) then
+			collection[entity] = data.components
 		end
-
-		collection[entity] = data.components
 	end
 
 	return collection

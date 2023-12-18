@@ -1,0 +1,12 @@
+# .prettierrc.toml
+tabWidth = 4
+
+semi = false
+singleQuote = true
+bracketSpacing = true
+singleAttributePerLine = true
+
+quoteProps = "as-needed"
+arrowParens = "avoid"
+trailingComma = "all"
+embeddedLanguageFormatting = "auto"
