@@ -226,14 +226,15 @@ function updateCollections(world: World, entity: any, entityData: EntityData) {
         const collectionSplit = collectionSignature.split('!')
         const collectionInclude = collectionSplit[0]
         const collectionExclude = collectionSplit[1]
+        const hasEnitty = collection.has(entity)
 
         if (
             band(collectionInclude, signature) == collectionInclude &&
             (collectionExclude === undefined ||
                 band(collectionExclude, signature) == charZero)
-        )
-            collection.set(entity, entityData.components)
-        else collection.delete(entity)
+        ) {
+            if (!hasEnitty) collection.set(entity, entityData.components)
+        } else if (hasEnitty) collection.delete(entity)
     }
 }
 
